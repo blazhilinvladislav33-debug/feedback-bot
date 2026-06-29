@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
 
-# Ваші налаштування (вже додані!)
+# Ваші налаштування
 API_TOKEN = '8576872452:AAFj_JW_MDq560wkgOOdkgdSAP0RVdgq74c'
 ADMIN_CHAT_ID = -1004110475608 
 
@@ -12,32 +14,26 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Обробник команди /start для підписників
+# --- ОБРОБНИКИ ТЕЛЕГРАМ-БОТА ---
+
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     if message.chat.id != ADMIN_CHAT_ID:
         await message.answer("Вітаю! Напишіть своє повідомлення сюди, і наша команда відповість вам найближчим часом.")
 
-# Обробник відповідей від адміністраторів у закритому чаті
 @dp.message(F.chat.id == ADMIN_CHAT_ID)
 async def handle_admin_reply(message: Message):
-    # Перевіряємо, чи це відповідь на переслане повідомлення
     if message.reply_to_message and message.reply_to_message.forward_origin:
         try:
-            # Отримуємо ID підписника з оригінального повідомлення
             user_id = message.reply_to_message.forward_origin.sender_user.id
-            # Відправляємо текст адміністратора підписнику
             await bot.send_message(chat_id=user_id, text=message.text)
-        except Exception as e:
+        except Exception:
             await message.answer("Помилка: можливо, у користувача прихований профіль для пересилання повідомлень.")
     else:
-        # Ігноруємо звичайне спілкування команди в чаті
         pass
 
-# Обробник вхідних повідомлень від підписників
 @dp.message(F.chat.type == "private")
 async def handle_user_message(message: Message):
-    # Пересилаємо повідомлення користувача в адмін-чат
     await bot.forward_message(
         chat_id=ADMIN_CHAT_ID,
         from_chat_id=message.chat.id,
@@ -45,8 +41,29 @@ async def handle_user_message(message: Message):
     )
     await message.answer("Ваше повідомлення надіслано! Очікуйте на відповідь.")
 
+# --- НЕВИДИМИЙ ПІНГАТОР (Щоб сервер не спав) ---
+
+async def ping_handler(request):
+    # Ця відповідь існує лише для сервера, в Telegram вона не потрапить
+    return web.Response(text="Bot is awake and working!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', ping_handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    # Render автоматично видає порт через змінну середовища
+    port = int(os.environ.get('PORT', 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logging.info(f"Фоновий вебсервер запущено на порту {port}")
+
 async def main():
-    await dp.start_polling(bot)
+    # Одночасно запускаємо і вебсервер-пінгатор, і самого бота
+    await asyncio.gather(
+        start_web_server(),
+        dp.start_polling(bot)
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
