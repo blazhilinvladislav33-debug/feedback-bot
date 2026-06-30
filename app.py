@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 # Ваші налаштування
-API_TOKEN = '8576872452:AAFj_JW_MDq560wkgOOdkgdSAP0RVdgq74c'
+API_TOKEN = '8576872452:AAHjOlZkAqtRom8ADS2tO4Jx00VblJ3hN3o'
 ADMIN_CHAT_ID = -1004110475608 
 
 logging.basicConfig(level=logging.INFO)
